@@ -10,6 +10,7 @@ import { AppProvider } from "@shopify/shopify-app-remix/react";
 import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server";
+import { useEffect, useState } from "react";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
@@ -44,18 +45,23 @@ export default function App() {
 
   const location = useLocation();
 
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const searchParams = new URLSearchParams(location.search);
   searchParams.set("host", host);
+
+  if (!isMounted) return null; // Prevent SSR mismatch
+
   // console.log("Search params set with host:", searchParams.toString(),'h host:', host );
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey} host={host}>
       <NavMenu>
-        <Link to={`/app?${searchParams.toString()}`} >
-          Home
-        </Link>
-        <Link to={`/app/billing?${searchParams.toString()}`} >
-          Billing
-        </Link>
+        <Link to={`/app?${searchParams.toString()}`}>Home</Link>
+        <Link to={`/app/billing?${searchParams.toString()}`}>Billing</Link>
         <Link
           to={`/app/setup-discounts?${searchParams.toString()}`}
           rel="setup-discounts"
