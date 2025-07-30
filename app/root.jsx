@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Links,
   Meta,
@@ -9,9 +11,8 @@ import {
 import { json, redirect } from "@remix-run/node";
 import { createApp } from "@shopify/app-bridge";
 import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
-import { useMemo } from "react";
+import { useMemo, useEffect, useState } from "react";
 import "@shopify/polaris/build/esm/styles.css";
-
 
 export const loader = async ({ request }) => {
   const url = new URL(request.url);
@@ -30,14 +31,52 @@ export const loader = async ({ request }) => {
 
 export default function App() {
   const { apiKey, host } = useLoaderData();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const appBridge = useMemo(() => {
-    return createApp({
-      apiKey,
-      host,
-      forceRedirect: true,
-    });
-  }, [apiKey, host]);
+    if (!isMounted || !apiKey || !host) {
+      return null;
+    }
+
+    try {
+      return createApp({
+        apiKey,
+        host,
+        forceRedirect: true,
+      });
+    } catch (error) {
+      console.error("Failed to create App Bridge:", error);
+      return null;
+    }
+  }, [apiKey, host, isMounted]);
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!isMounted) {
+    return (
+      <html lang="en">
+        <head>
+          <meta charSet="utf-8" />
+          <meta name="viewport" content="width=device-width,initial-scale=1" />
+          <link rel="preconnect" href="https://cdn.shopify.com/" />
+          <link
+            rel="stylesheet"
+            href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
+          />
+          <Meta />
+          <Links />
+        </head>
+        <body>
+          <div>Loading...</div>
+          <ScrollRestoration />
+          <Scripts />
+        </body>
+      </html>
+    );
+  }
 
   return (
     <html lang="en">
@@ -63,7 +102,6 @@ export default function App() {
         >
           <Outlet context={{ appBridge }} />
         </PolarisAppProvider>
-
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Link,
   Outlet,
@@ -11,52 +13,59 @@ import { NavMenu } from "@shopify/app-bridge-react";
 import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
 import { authenticate } from "../shopify.server";
 import { useEffect, useState } from "react";
+import { json } from "@remix-run/node";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
-
-// export const loader = async ({ request }) => {
-//   await authenticate.admin(request);
-//   const url = new URL(request.url);
-//   const host = url.searchParams.get("host");
-
-//   return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
-// };
 
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
   const url = new URL(request.url);
   const host = url.searchParams.get("host");
-  // console.log("Loader called with host:", host);
+
+  console.log("App loader - URL:", url.toString());
+  console.log("App loader - Host from params:", host);
 
   if (!host) {
+    console.error("Missing host parameter in app loader");
     throw new Response("Missing host parameter", {
-      status: 302,
-      headers: {
-        Location: `/exitframe?${url.searchParams.toString()}`, // Or redirect to a safe fallback
-      },
+      status: 400,
+      statusText: "Bad Request - Missing host parameter",
     });
   }
 
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
+  return json({
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    host: host,
+  });
 };
 
 export default function App() {
   const { apiKey, host } = useLoaderData();
-
   const location = useLocation();
-
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Prevent hydration mismatch
+  if (!isMounted) {
+    return <div>Loading app...</div>;
+  }
+
+  if (!host || !apiKey) {
+    console.error("Missing required props:", { host, apiKey: !!apiKey });
+    return <div>Error: Missing required configuration</div>;
+  }
+
   const searchParams = new URLSearchParams(location.search);
-  searchParams.set("host", host);
+  if (!searchParams.has("host")) {
+    searchParams.set("host", host);
+  }
 
-  if (!isMounted) return null; // Prevent SSR mismatch
+  console.log("App component - Host:", host);
+  console.log("App component - Search params:", searchParams.toString());
 
-  // console.log("Search params set with host:", searchParams.toString(),'h host:', host );
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey} host={host}>
       <NavMenu>
