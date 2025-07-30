@@ -14,6 +14,7 @@ export async function loader({ request }) {
       shopifyAppUrl: process.env.SHOPIFY_APP_URL,
     };
 
+    
     console.log("Health check accessed:", healthData);
 
     return json(healthData, {
