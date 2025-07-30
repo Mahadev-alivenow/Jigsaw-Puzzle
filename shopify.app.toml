@@ -1,0 +1,37 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "7ffb6765a10ecb0d29bc6f06b9472008"
+name = "jigsaw-puzzle"
+handle = "jigsaw-puzzle"
+application_url = "https://clusters-outline-arrived-cheese.trycloudflare.com"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+dev_store_url = "stagging-spinorama.myshopify.com"
+include_config_on_deploy = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_discounts,read_products,write_discounts,write_products"
+
+[auth]
+redirect_urls = [
+  "https://clusters-outline-arrived-cheese.trycloudflare.com/auth/callback",
+  "https://clusters-outline-arrived-cheese.trycloudflare.com/auth/shopify/callback",
+  "https://clusters-outline-arrived-cheese.trycloudflare.com/api/auth/callback"
+]
+
+[webhooks]
+api_version = "2025-07"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
+
+  [[webhooks.subscriptions]]
+  topics = [ "app/uninstalled" ]
+  uri = "/webhooks/app/uninstalled"
+
+[pos]
+embedded = false

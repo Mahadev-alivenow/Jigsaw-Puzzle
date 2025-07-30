@@ -1,0 +1,26 @@
+
+
+# Learn more about configuring your extension:
+# https://shopify.dev/docs/apps/app-extensions/configuration
+
+api_version = "2024-07"
+
+[[extensions]]
+type = "theme"
+name = "Jigsaw Puzzle Widget"
+handle = "puzzle-jigsaw"
+
+[extensions.settings]
+include_app_block = true
+
+[[extensions.metafields]]
+namespace = "puzzle_craft"
+key = "subscription_active"
+
+[[extensions.metafields]]
+namespace = "puzzle_craft"
+key = "discount_codes"
+
+[[extensions.metafields]]
+namespace = "puzzle_craft"
+key = "active_campaign"

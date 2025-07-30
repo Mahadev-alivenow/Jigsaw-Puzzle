@@ -1,0 +1,7 @@
+.primaryCard {
+    background-color: var(--p-color-bg-primary);
+    color: var(--p-color-text-on-primary);
+    padding: 16px;
+    border-radius: 8px;
+  }
+  

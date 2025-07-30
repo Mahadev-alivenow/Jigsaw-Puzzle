@@ -1,0 +1,13 @@
+/* global.css */
+.primaryCard {
+    background-color: var(--p-color-bg-primary);
+    color: var(--p-color-text-on-primary);
+    border-radius: 8px;
+    padding: 16px;
+  }
+.secondaryCard {
+    background-color: var(--p-color-bg-secondary);
+    color: var(--p-color-text-on-secondary);
+    border-radius: 8px;
+    padding: 16px;
+  }  

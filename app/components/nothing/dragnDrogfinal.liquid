@@ -1,0 +1,1590 @@
+{% comment %}
+Fixed Jigsaw Puzzle Widget - CORS Issue Resolved
+{% endcomment %}
+
+{% assign puzzle_data = shop.metafields.puzzle_craft %}
+{% assign subscription_active = puzzle_data.subscription_active %}
+{% assign discount_codes = puzzle_data.discount_codes %}
+{% assign active_campaign = app.metafields.puzzle_craft %}
+
+{% if subscription_active == 'true' and active_campaign %}
+
+<!-- Floating Widget -->
+<div id="puzzle-widget" style="
+  position: fixed;
+  {% case settings.widget_position %}
+    {% when 'right-top' %}
+      top: 20px; right: 20px;
+    {% when 'right-bottom' %}
+      bottom: 20px; right: 20px;
+    {% when 'bottom-center' %}
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+    {% when 'left-bottom' %}
+      bottom: 20px; left: 20px;
+    {% else %}
+      bottom: 20px; right: 20px;
+  {% endcase %}
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 50%;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  cursor: pointer;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  animation: pulseWidget 2s infinite;
+" onclick="openPuzzleGame()">
+
+  <!-- Widget Icon -->
+  <div style="
+    color: white;
+    font-size: 28px;
+    text-align: center;
+    line-height: 1;
+  ">
+    🧩
+  </div>
+
+  <!-- Notification Badge -->
+  <div style="
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: bounce 1s infinite;
+  ">
+    !
+  </div>
+</div>
+
+<!-- Game Popup Modal -->
+<div id="puzzle-game-modal" style="
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(5px);
+  z-index: 10000;
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+">
+
+  <!-- Game Container -->
+  <div id="game-container" style="
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    position: relative;
+  ">
+
+    <!-- Game Header -->
+    <div style="
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 16px 16px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    ">
+      <div>
+        <h2 style="margin: 0; font-size: 24px; font-weight: 700;">🧩 Puzzle Challenge</h2>
+        <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.9;">Match pieces precisely to win!</p>
+      </div>
+
+      <div style="text-align: right;">
+        <div id="timer-display" style="
+          font-size: 36px; 
+          font-weight: bold; 
+          margin-bottom: 5px;
+          text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        ">{{ active_campaign.timer }}</div>
+        <div style="font-size: 12px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px;">seconds left</div>
+      </div>
+
+      <!-- Close Button -->
+      <button onclick="closePuzzleGame()" style="
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s ease;
+      " onmouseover="this.style.background='rgba(255,255,255,0.3)'"
+        onmouseout="this.style.background='rgba(255,255,255,0.2)'">
+        ✕
+      </button>
+    </div>
+
+    <!-- Game Content -->
+    <div id="game-content" style="padding: 30px;">
+
+      <!-- Real-time Score Display -->
+      <div id="score-display" style="
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding: 15px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+      ">
+        <div>
+          <div style="font-size: 18px; font-weight: 700;">🏆 Score: <span id="current-score">0</span></div>
+          <div style="font-size: 12px; opacity: 0.9;">+15 per correct piece</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 16px; font-weight: 600;">🎯 <span
+              id="completed-count">0</span>/{{ active_campaign.puzzlePieces }}</div>
+          <div style="font-size: 12px; opacity: 0.9;">pieces placed</div>
+        </div>
+      </div>
+
+      <!-- Progress Bar -->
+      <div style="margin-bottom: 25px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span style="font-size: 14px; font-weight: 600; color: #495057;">Progress</span>
+          <span id="progress-percentage" style="font-size: 14px; font-weight: 600; color: #28a745;">0%</span>
+        </div>
+        <div style="
+          width: 100%;
+          height: 8px;
+          background: #e9ecef;
+          border-radius: 4px;
+          overflow: hidden;
+        ">
+          <div id="progress-bar" style="
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+            transition: width 0.5s ease;
+          "></div>
+        </div>
+      </div>
+
+      <!-- Reference Image -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 14px; font-weight: 600; color: #495057; margin-bottom: 10px;">📸 Reference (Click to
+          toggle)</div>
+        <div id="reference-image" onclick="toggleReference()" style="
+          width: 80px;
+          height: 80px;
+          background-image: url('{{ active_campaign.imageUrl }}');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          border: 3px solid #fff;
+          opacity: 0.7;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          margin: 0 auto;
+          display: inline-block;
+        "></div>
+      </div>
+
+      <!-- Puzzle Board -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 14px; font-weight: 600; color: #495057; margin-bottom: 15px;">🎲 Puzzle Board</div>
+        <div id="puzzle-board" style="
+          width: 320px;
+          height: 320px;
+          margin: 0 auto;
+          border: 3px solid #e9ecef;
+          border-radius: 12px;
+          background: #f8f9fa;
+          display: grid;
+          {% if active_campaign.puzzlePieces == '4' %}
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+          {% else %}
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+          {% endif %}
+          gap: 3px;
+          padding: 10px;
+          box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        ">
+        </div>
+      </div>
+
+      <!-- Puzzle Pieces -->
+      <div style="text-align: center; margin-bottom: 25px;">
+        <div style="font-size: 14px; font-weight: 600; color: #495057; margin-bottom: 15px;">🧩 Available Pieces</div>
+        <div id="pieces-container" style="
+          min-height: 120px;
+          padding: 20px;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 12px;
+          border: 2px dashed #ced4da;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 12px;
+          justify-content: center;
+          align-items: center;
+        ">
+          <div style="color: #6c757d; font-size: 14px;">Click "Start Game" to load puzzle pieces...</div>
+        </div>
+      </div>
+
+      <!-- Game Controls -->
+      <div style="text-align: center; display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+        <button id="start-game-btn" onclick="startPuzzleGame()" style="
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+          color: white;
+          border: none;
+          padding: 15px 30px;
+          border-radius: 30px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(40, 167, 69, 0.4)'"
+          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(40, 167, 69, 0.3)'">
+          🚀 Start Game
+        </button>
+
+        <button id="submit-early-btn" onclick="submitEarly()" style="
+          background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+          color: white;
+          border: none;
+          padding: 15px 30px;
+          border-radius: 30px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+          display: none;
+        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+          📤 Submit Early
+        </button>
+
+        <button id="shuffle-btn" onclick="shufflePieces()" style="
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 25px;
+          font-size: 14px;
+          cursor: pointer;
+          display: none;
+        ">
+          🔀 Shuffle
+        </button>
+
+        <button id="hint-btn" onclick="showHint()" style="
+          background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 25px;
+          font-size: 14px;
+          cursor: pointer;
+          display: none;
+        ">
+          💡 Hint (2 left)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Completion Modal -->
+<div id="completion-modal" style="
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 10001;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  box-sizing: border-box;
+">
+  <div style="
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    max-width: 400px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    text-align: center;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+    position: relative;
+    box-sizing: border-box;
+  ">
+
+    <!-- Success Animation -->
+    <div id="completion-icon"
+      style="font-size: 60px; margin-bottom: 15px; animation: celebrationBounce 1s ease-in-out;">🎉</div>
+
+    <h2 id="completion-title" style="color: #28a745; margin: 0 0 15px 0; font-size: 22px; font-weight: 700;">
+      Puzzle Completed!
+    </h2>
+
+    <!-- Compact Game Stats -->
+    <div id="completion-stats" style="
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 15px;
+      border-radius: 10px;
+      margin: 15px 0;
+      border-left: 4px solid #28a745;
+      font-size: 14px;
+    "></div>
+
+    <!-- Email Collection -->
+    <div style="margin: 20px 0;">
+      <label style="display: block; font-weight: 600; color: #495057; margin-bottom: 8px; font-size: 14px;">
+        📧 Enter your email to claim reward:
+      </label>
+      <input type="email" id="user-email" placeholder="your@email.com" style="
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 14px;
+        margin-bottom: 15px;
+        box-sizing: border-box;
+        transition: border-color 0.3s ease;
+      " onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e9ecef'">
+    </div>
+
+    <!-- Compact Discount Code Display -->
+    <div id="discount-display" style="
+      background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      color: white;
+      padding: 15px;
+      border-radius: 12px;
+      margin: 15px 0;
+      box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+      font-size: 14px;
+    "></div>
+
+    <!-- Compact Action Buttons -->
+    <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+      <button onclick="claimReward()" style="
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        flex: 1;
+        min-width: 120px;
+      " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        🎁 Claim Reward
+      </button>
+
+      <button onclick="playAgain()" style="
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 12px 20px;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        flex: 1;
+        min-width: 120px;
+      " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+        🔄 Play Again
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Animations */
+  @keyframes pulseWidget {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    50% {
+      transform: scale(1.05);
+      box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+    }
+
+    100% {
+      transform: scale(1);
+      box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+  }
+
+  @keyframes bounce {
+
+    0%,
+    20%,
+    50%,
+    80%,
+    100% {
+      transform: translateY(0);
+    }
+
+    40% {
+      transform: translateY(-10px);
+    }
+
+    60% {
+      transform: translateY(-5px);
+    }
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes celebrationBounce {
+
+    0%,
+    20%,
+    50%,
+    80%,
+    100% {
+      transform: translateY(0) scale(1);
+    }
+
+    40% {
+      transform: translateY(-15px) scale(1.1);
+    }
+
+    60% {
+      transform: translateY(-8px) scale(1.05);
+    }
+  }
+
+  @keyframes timerPulse {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.1);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes shake {
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    25% {
+      transform: translateX(-5px);
+    }
+
+    75% {
+      transform: translateX(5px);
+    }
+  }
+
+  @keyframes glowHint {
+    0% {
+      box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+    }
+
+    50% {
+      box-shadow: 0 0 20px rgba(255, 193, 7, 0.8), 0 0 30px rgba(255, 193, 7, 0.6);
+    }
+
+    100% {
+      box-shadow: 0 0 5px rgba(255, 193, 7, 0.5);
+    }
+  }
+
+  @keyframes correctPlacement {
+    0% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.1);
+    }
+
+    100% {
+      transform: scale(1);
+    }
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Fallback patterns for missing images */
+  .puzzle-piece-fallback {
+    background: linear-gradient(45deg, #667eea, #764ba2, #28a745, #ffc107) !important;
+    background-size: 400% 400% !important;
+    animation: gradientShift 3s ease infinite !important;
+  }
+
+  @keyframes gradientShift {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    #game-container {
+      width: 95% !important;
+      margin: 10px !important;
+      max-height: 95vh !important;
+    }
+
+    #puzzle-board {
+      width: 280px !important;
+      height: 280px !important;
+    }
+
+    #puzzle-widget {
+      width: 70px !important;
+      height: 70px !important;
+    }
+
+    #puzzle-widget div:first-child {
+      font-size: 24px !important;
+    }
+
+    #completion-modal {
+      padding: 10px !important;
+    }
+
+    #completion-modal>div {
+      padding: 20px !important;
+      max-width: 350px !important;
+      max-height: 90vh !important;
+    }
+
+    #completion-icon {
+      font-size: 50px !important;
+      margin-bottom: 10px !important;
+    }
+
+    #completion-title {
+      font-size: 20px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    #game-content {
+      padding: 20px !important;
+    }
+
+    #completion-modal>div {
+      padding: 15px !important;
+      max-width: 320px !important;
+    }
+
+    #completion-stats {
+      padding: 12px !important;
+      font-size: 13px !important;
+    }
+
+    #discount-display {
+      padding: 12px !important;
+      font-size: 13px !important;
+    }
+  }
+</style>
+
+<script>
+  // Game Configuration
+  const PUZZLE_CONFIG = {
+    imageUrl: '{{ active_campaign.imageUrl }}',
+    pieces: parseInt( '{{ active_campaign.puzzlePieces }}' ) || 4,
+    timer: parseInt( '{{ active_campaign.timer }}' ) || 60,
+    discountCodes: ( () =>
+    {
+      try
+      {
+        const codes = {{ discount_codes | json }};
+    return Array.isArray( codes ) ? codes : [
+      { code: "PUZZLE10", tier: "bronze", percentage: 10, title: "Bronze Reward - 10% Off" },
+      { code: "PUZZLE20", tier: "silver", percentage: 20, title: "Silver Reward - 20% Off" },
+      { code: "PUZZLE25", tier: "gold", percentage: 25, title: "Gold Reward - 25% Off" },
+      { code: "PUZZLE30", tier: "platinum", percentage: 30, title: "Platinum Reward - 30% Off" }
+    ];
+  } catch ( e )
+  {
+    return [
+      { code: "PUZZLE10", tier: "bronze", percentage: 10, title: "Bronze Reward - 10% Off" },
+      { code: "PUZZLE20", tier: "silver", percentage: 20, title: "Silver Reward - 20% Off" },
+      { code: "PUZZLE25", tier: "gold", percentage: 25, title: "Gold Reward - 25% Off" },
+      { code: "PUZZLE30", tier: "platinum", percentage: 30, title: "Platinum Reward - 30% Off" }
+    ];
+  }
+  }) (),
+    campaignName: '{{ active_campaign.name }}' || 'Default Campaign'
+};
+
+  // Game State
+  let gameState = {
+    isPlaying: false,
+    startTime: null,
+    timeLeft: PUZZLE_CONFIG.timer,
+    timerInterval: null,
+    pieces: [],
+    completedPieces: 0,
+    score: 0,
+    gameLoaded: false,
+    hintsUsed: 0,
+    isEarlySubmission: false,
+    referenceVisible: false,
+    imageLoaded: false
+  };
+
+  // Fallback images for different piece counts
+  const FALLBACK_PATTERNS = [
+    'linear-gradient(45deg, #667eea, #764ba2)',
+    'linear-gradient(45deg, #28a745, #20c997)',
+    'linear-gradient(45deg, #ffc107, #fd7e14)',
+    'linear-gradient(45deg, #dc3545, #e83e8c)',
+    'linear-gradient(45deg, #17a2b8, #6f42c1)',
+    'linear-gradient(45deg, #6c757d, #495057)',
+    'linear-gradient(45deg, #f8f9fa, #e9ecef)',
+    'linear-gradient(45deg, #343a40, #212529)'
+  ];
+
+  // Toggle reference image visibility
+  function toggleReference()
+  {
+    const refImg = document.getElementById( 'reference-image' );
+    gameState.referenceVisible = !gameState.referenceVisible;
+
+    if ( gameState.referenceVisible )
+    {
+      refImg.style.opacity = '1';
+      refImg.style.width = '120px';
+      refImg.style.height = '120px';
+    } else
+    {
+      refImg.style.opacity = '0.7';
+      refImg.style.width = '80px';
+      refImg.style.height = '80px';
+    }
+  }
+
+  // Open puzzle game popup
+  function openPuzzleGame()
+  {
+    document.getElementById( 'puzzle-game-modal' ).style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+
+    if ( !gameState.gameLoaded )
+    {
+      initializePuzzle();
+      gameState.gameLoaded = true;
+    }
+  }
+
+  // Close puzzle game
+  function closePuzzleGame()
+  {
+    document.getElementById( 'puzzle-game-modal' ).style.display = 'none';
+    document.getElementById( 'completion-modal' ).style.display = 'none';
+    document.body.style.overflow = 'auto';
+
+    if ( gameState.isPlaying )
+    {
+      pauseGame();
+    }
+  }
+
+  // Initialize puzzle - CORS-safe approach
+  function initializePuzzle()
+  {
+    console.log( 'Initializing puzzle with config:', PUZZLE_CONFIG );
+
+    // Show loading message
+    document.getElementById( 'pieces-container' ).innerHTML = `
+    <div style="color: #6c757d; font-size: 14px; display: flex; align-items: center; gap: 10px;">
+      <div style="width: 20px; height: 20px; border: 2px solid #6c757d; border-top: 2px solid transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+      Creating puzzle pieces...
+    </div>
+  `;
+
+    // Test if image loads by creating a test element
+    const testDiv = document.createElement( 'div' );
+    testDiv.style.cssText = `
+    width: 1px;
+    height: 1px;
+    background-image: url('${ PUZZLE_CONFIG.imageUrl }');
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  `;
+    document.body.appendChild( testDiv );
+
+    // Check if background image loaded after a short delay
+    setTimeout( () =>
+    {
+      const computedStyle = window.getComputedStyle( testDiv );
+      const backgroundImage = computedStyle.backgroundImage;
+
+      if ( backgroundImage && backgroundImage !== 'none' )
+      {
+        console.log( 'Image appears to be loading, proceeding with puzzle creation' );
+        gameState.imageLoaded = true;
+      } else
+      {
+        console.warn( 'Image may not be loading, using fallback patterns' );
+        gameState.imageLoaded = false;
+      }
+
+      document.body.removeChild( testDiv );
+      createPuzzlePieces();
+    }, 500 );
+  }
+
+  // Create puzzle pieces - CORS-safe with fallbacks
+  function createPuzzlePieces()
+  {
+    console.log( 'Creating puzzle pieces...' );
+
+    const boardSize = 300;
+    const rows = PUZZLE_CONFIG.pieces === 4 ? 2 : 2;
+    const cols = PUZZLE_CONFIG.pieces === 4 ? 2 : 4;
+    const pieceWidth = boardSize / cols;
+    const pieceHeight = boardSize / rows;
+
+    const piecesContainer = document.getElementById( 'pieces-container' );
+    const puzzleBoard = document.getElementById( 'puzzle-board' );
+
+    // Clear containers
+    piecesContainer.innerHTML = '';
+    puzzleBoard.innerHTML = '';
+
+    console.log( `Creating ${ PUZZLE_CONFIG.pieces } pieces in ${ rows }x${ cols } grid` );
+
+    // Create puzzle board slots
+    for ( let i = 0; i < PUZZLE_CONFIG.pieces; i++ )
+    {
+      const slot = document.createElement( 'div' );
+      slot.className = 'puzzle-slot';
+      slot.dataset.position = i;
+
+      slot.style.cssText = `
+      border: 2px dashed #ced4da;
+      border-radius: 8px;
+      background: #f8f9fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #ced4da;
+      transition: all 0.3s ease;
+      position: relative;
+      min-height: ${ pieceHeight - 20 }px;
+    `;
+
+      // Add position number
+      const numberOverlay = document.createElement( 'div' );
+      numberOverlay.style.cssText = `
+      background: rgba(108, 117, 125, 0.8);
+      color: white;
+      padding: 6px 10px;
+      border-radius: 15px;
+      font-size: 14px;
+      font-weight: bold;
+      pointer-events: none;
+    `;
+      numberOverlay.textContent = i + 1;
+      slot.appendChild( numberOverlay );
+
+      // Add drop event listeners
+      slot.addEventListener( 'dragover', handleDragOver );
+      slot.addEventListener( 'drop', handleDrop );
+      slot.addEventListener( 'dragleave', handleDragLeave );
+
+      puzzleBoard.appendChild( slot );
+    }
+
+    // Create puzzle pieces with fallback handling
+    for ( let i = 0; i < PUZZLE_CONFIG.pieces; i++ )
+    {
+      const row = Math.floor( i / cols );
+      const col = i % cols;
+
+      const piece = document.createElement( 'div' );
+      piece.className = 'puzzle-piece';
+      piece.dataset.position = i;
+      piece.draggable = true;
+
+      // Calculate background position
+      const bgPosX = cols > 1 ? ( col * 100 ) / ( cols - 1 ) : 50;
+      const bgPosY = rows > 1 ? ( row * 100 ) / ( rows - 1 ) : 50;
+
+      // Try to use the original image, with fallback
+      let backgroundStyle = '';
+      if ( gameState.imageLoaded && PUZZLE_CONFIG.imageUrl )
+      {
+        backgroundStyle = `
+        background-image: url('${ PUZZLE_CONFIG.imageUrl }');
+        background-size: ${ cols * 100 }% ${ rows * 100 }%;
+        background-position: ${ bgPosX }% ${ bgPosY }%;
+        background-repeat: no-repeat;
+      `;
+      } else
+      {
+        // Use colorful fallback patterns
+        backgroundStyle = `
+        background: ${ FALLBACK_PATTERNS[ i % FALLBACK_PATTERNS.length ] };
+        background-size: 200% 200%;
+        animation: gradientShift 3s ease infinite;
+        animation-delay: ${ i * 0.2 }s;
+      `;
+      }
+
+      piece.style.cssText = `
+      width: ${ pieceWidth - 20 }px;
+      height: ${ pieceHeight - 20 }px;
+      ${ backgroundStyle }
+      border: 3px solid #fff;
+      border-radius: 8px;
+      cursor: grab;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: all 0.3s ease;
+      position: relative;
+      flex-shrink: 0;
+      user-select: none;
+    `;
+
+      // Add piece number for identification
+      const pieceNumber = document.createElement( 'div' );
+      pieceNumber.style.cssText = `
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      font-size: 10px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-weight: bold;
+      pointer-events: none;
+      z-index: 1;
+    `;
+      // pieceNumber.textContent = i + 1;
+      piece.appendChild( pieceNumber );
+
+      // Add drag event listeners
+      piece.addEventListener( 'dragstart', handleDragStart );
+      piece.addEventListener( 'dragend', handleDragEnd );
+
+      // Add hover effects
+      piece.addEventListener( 'mouseenter', function ()
+      {
+        this.style.transform = 'scale(1.05)';
+        this.style.boxShadow = '0 6px 20px rgba(0,0,0,0.25)';
+        this.style.zIndex = '10';
+      } );
+
+      piece.addEventListener( 'mouseleave', function ()
+      {
+        this.style.transform = 'scale(1)';
+        this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        this.style.zIndex = '1';
+      } );
+
+      // Add error handling for background images
+      piece.addEventListener( 'error', function ()
+      {
+        console.log( 'Piece background failed, switching to fallback' );
+        this.className += ' puzzle-piece-fallback';
+      } );
+
+      piecesContainer.appendChild( piece );
+    }
+
+    console.log( `Created ${ PUZZLE_CONFIG.pieces } puzzle pieces successfully` );
+
+    // Shuffle pieces
+    setTimeout( () =>
+    {
+      shufflePieces();
+    }, 100 );
+
+    // Update UI
+    document.getElementById( 'start-game-btn' ).style.display = 'inline-block';
+    document.getElementById( 'shuffle-btn' ).style.display = 'inline-block';
+    document.getElementById( 'hint-btn' ).style.display = 'inline-block';
+
+    // Show success message
+    setTimeout( () =>
+    {
+      const container = document.getElementById( 'pieces-container' );
+      if ( container.children.length > 1 )
+      { // More than just the loading message
+        console.log( 'Puzzle pieces created successfully!' );
+      }
+    }, 200 );
+  }
+
+  // Drag and Drop Event Handlers
+  function handleDragStart( e )
+  {
+    console.log( 'Drag start:', e.target.dataset.position );
+    e.dataTransfer.setData( 'text/plain', e.target.dataset.position );
+    e.target.style.opacity = '0.5';
+    e.target.style.cursor = 'grabbing';
+  }
+
+  function handleDragEnd( e )
+  {
+    console.log( 'Drag end' );
+    e.target.style.opacity = '1';
+    e.target.style.cursor = 'grab';
+  }
+
+  function handleDragOver( e )
+  {
+    e.preventDefault();
+    const slot = e.currentTarget;
+    if ( !slot.querySelector( '.puzzle-piece' ) )
+    {
+      slot.style.opacity = '0.8';
+      slot.style.borderColor = '#667eea';
+      slot.style.borderStyle = 'solid';
+      slot.style.transform = 'scale(1.02)';
+    }
+  }
+
+  function handleDragLeave( e )
+  {
+    const slot = e.currentTarget;
+    if ( !slot.querySelector( '.puzzle-piece' ) )
+    {
+      slot.style.opacity = '1';
+      slot.style.borderColor = '#ced4da';
+      slot.style.borderStyle = 'dashed';
+      slot.style.transform = 'scale(1)';
+    }
+  }
+
+  function handleDrop( e )
+  {
+    e.preventDefault();
+    const piecePosition = e.dataTransfer.getData( 'text/plain' );
+    const slot = e.currentTarget;
+    const slotPosition = slot.dataset.position;
+
+    console.log( 'Drop attempt:', piecePosition, 'to slot:', slotPosition );
+
+    // Reset slot appearance
+    handleDragLeave( e );
+
+    // Check if slot is already occupied
+    if ( slot.querySelector( '.puzzle-piece' ) )
+    {
+      console.log( 'Slot already occupied' );
+      return;
+    }
+
+    if ( piecePosition === slotPosition )
+    {
+      // Correct placement
+      console.log( 'Correct placement!' );
+      const piece = document.querySelector( `.puzzle-piece[data-position="${ piecePosition }"]` );
+
+      if ( piece && piece.parentNode )
+      {
+        // Remove piece from current location
+        piece.parentNode.removeChild( piece );
+
+        // Clear slot and add piece
+        slot.innerHTML = '';
+        slot.appendChild( piece );
+
+        // Update slot styling for correct placement
+        slot.style.border = '3px solid #28a745';
+        slot.style.background = 'none';
+        slot.style.opacity = '1';
+        slot.style.animation = 'correctPlacement 0.5s ease-in-out';
+
+        // Update piece styling
+        piece.draggable = false;
+        piece.style.cursor = 'default';
+        piece.style.border = 'none';
+        piece.style.width = '100%';
+        piece.style.height = '100%';
+        piece.style.borderRadius = '6px';
+
+        // Remove the piece number
+        const pieceNumber = piece.querySelector( 'div' );
+        if ( pieceNumber ) pieceNumber.remove();
+
+        // Update game state and score
+        gameState.completedPieces++;
+        gameState.score += 15;
+
+        // Speed bonus
+        if ( gameState.isPlaying )
+        {
+          const timeElapsed = PUZZLE_CONFIG.timer - gameState.timeLeft;
+          if ( timeElapsed < 15 ) gameState.score += 10;
+          else if ( timeElapsed < 30 ) gameState.score += 5;
+        }
+
+        updateGameDisplay();
+
+        // Check if puzzle is complete
+        if ( gameState.completedPieces === PUZZLE_CONFIG.pieces )
+        {
+          setTimeout( () => completePuzzle(), 500 );
+        }
+      }
+    } else
+    {
+      // Wrong placement
+      console.log( 'Wrong placement' );
+      slot.style.opacity = '0.5';
+      slot.style.borderColor = '#dc3545';
+      slot.style.borderStyle = 'solid';
+      slot.style.animation = 'shake 0.5s ease-in-out';
+
+      // Deduct points for wrong placement
+      gameState.score = Math.max( 0, gameState.score - 2 );
+      updateGameDisplay();
+
+      setTimeout( () =>
+      {
+        if ( !slot.querySelector( '.puzzle-piece' ) )
+        {
+          slot.style.opacity = '1';
+          slot.style.borderColor = '#ced4da';
+          slot.style.borderStyle = 'dashed';
+          slot.style.animation = 'none';
+        }
+      }, 1000 );
+    }
+  }
+
+  // Update game display
+  function updateGameDisplay()
+  {
+    document.getElementById( 'current-score' ).textContent = gameState.score;
+    document.getElementById( 'completed-count' ).textContent = gameState.completedPieces;
+
+    const progressPercentage = Math.round( ( gameState.completedPieces / PUZZLE_CONFIG.pieces ) * 100 );
+    document.getElementById( 'progress-percentage' ).textContent = progressPercentage + '%';
+    document.getElementById( 'progress-bar' ).style.width = progressPercentage + '%';
+  }
+
+  // Start the puzzle game
+  function startPuzzleGame()
+  {
+    if ( gameState.isPlaying ) return;
+
+    console.log( 'Starting puzzle game' );
+
+    gameState.isPlaying = true;
+    gameState.startTime = Date.now();
+    gameState.timeLeft = PUZZLE_CONFIG.timer;
+    gameState.completedPieces = 0;
+    gameState.score = 0;
+    gameState.hintsUsed = 0;
+    gameState.isEarlySubmission = false;
+
+    // Update UI
+    document.getElementById( 'start-game-btn' ).style.display = 'none';
+    document.getElementById( 'submit-early-btn' ).style.display = 'inline-block';
+    document.getElementById( 'shuffle-btn' ).style.display = 'inline-block';
+    document.getElementById( 'hint-btn' ).style.display = 'inline-block';
+
+    // Start countdown timer
+    gameState.timerInterval = setInterval( () =>
+    {
+      gameState.timeLeft--;
+      updateTimerDisplay();
+
+      if ( gameState.timeLeft <= 0 )
+      {
+        gameOver();
+      }
+    }, 1000 );
+
+    updateGameDisplay();
+  }
+
+  // Submit early functionality
+  function submitEarly()
+  {
+    if ( !gameState.isPlaying ) return;
+
+    gameState.isEarlySubmission = true;
+    clearInterval( gameState.timerInterval );
+    gameState.isPlaying = false;
+
+    const timeBonus = gameState.timeLeft * 1;
+    gameState.score += timeBonus;
+
+    showEarlySubmissionResults();
+  }
+
+  // Show early submission results
+  function showEarlySubmissionResults()
+  {
+    const completionPercentage = Math.round( ( gameState.completedPieces / PUZZLE_CONFIG.pieces ) * 100 );
+    const completionTime = PUZZLE_CONFIG.timer - gameState.timeLeft;
+
+    let canClaimReward = completionPercentage >= 50;
+    let discountTier = 'bronze';
+
+    if ( completionPercentage >= 90 ) discountTier = 'platinum';
+    else if ( completionPercentage >= 75 ) discountTier = 'gold';
+    else if ( completionPercentage >= 60 ) discountTier = 'silver';
+
+    const discount = PUZZLE_CONFIG.discountCodes.find( d => d.tier === discountTier ) || PUZZLE_CONFIG.discountCodes[ 0 ];
+
+    document.getElementById( 'completion-icon' ).textContent = completionPercentage >= 75 ? '🎉' : '⏰';
+    document.getElementById( 'completion-title' ).textContent =
+      completionPercentage >= 75 ? 'Great Progress!' : 'Time\'s Up!';
+    document.getElementById( 'completion-title' ).style.color =
+      completionPercentage >= 75 ? '#28a745' : '#ffc107';
+
+    document.getElementById( 'completion-stats' ).innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left;">
+      <div><strong>📊 Progress:</strong><br>${ completionPercentage }% (${ gameState.completedPieces }/${ PUZZLE_CONFIG.pieces })</div>
+      <div><strong>⏱️ Time:</strong><br>${ completionTime }s</div>
+      <div><strong>🏆 Score:</strong><br>${ gameState.score } pts</div>
+      <div><strong>⚡ Bonus:</strong><br>+${ gameState.timeLeft } pts</div>
+    </div>
+    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e9ecef; text-align: center;">
+      <strong style="color: ${ canClaimReward ? '#28a745' : '#dc3545' };">
+        ${ canClaimReward ? `${ discountTier.toUpperCase() } TIER!` : 'Need 50%+ for reward' }
+      </strong>
+    </div>
+  `;
+
+    if ( canClaimReward )
+    {
+      document.getElementById( 'discount-display' ).innerHTML = `
+      <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+        🎁 ${ discount.title }
+      </div>
+      <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; margin: 8px 0;">
+        ${ discount.code }
+      </div>
+      <div style="font-size: 12px; opacity: 0.9;">
+        ${ discount.percentage }% OFF your purchase!
+      </div>
+    `;
+      document.getElementById( 'discount-display' ).style.background = 'linear-gradient(135deg, #28a745 0%, #20c997 100%)';
+    } else
+    {
+      document.getElementById( 'discount-display' ).innerHTML = `
+      <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+        😔 No Discount Available
+      </div>
+      <div style="font-size: 12px; opacity: 0.9;">
+        Complete at least 50% to earn a discount!
+      </div>
+    `;
+      document.getElementById( 'discount-display' ).style.background = '#dc3545';
+    }
+
+    document.getElementById( 'completion-modal' ).style.display = 'flex';
+  }
+
+  // Show hint functionality
+  function showHint()
+  {
+    if ( gameState.hintsUsed >= 2 )
+    {
+      alert( '💡 No more hints available! You\'ve used all hints.' );
+      return;
+    }
+
+    const unplacedPieces = document.querySelectorAll( '.puzzle-piece[draggable="true"]' );
+    if ( unplacedPieces.length === 0 ) return;
+
+    const randomPiece = unplacedPieces[ Math.floor( Math.random() * unplacedPieces.length ) ];
+    const correctSlot = document.querySelector( `.puzzle-slot[data-position="${ randomPiece.dataset.position }"]` );
+
+    randomPiece.style.border = '3px solid #ffc107';
+    randomPiece.style.animation = 'glowHint 3s infinite';
+
+    if ( correctSlot && !correctSlot.querySelector( '.puzzle-piece' ) )
+    {
+      correctSlot.style.borderColor = '#ffc107';
+      correctSlot.style.borderStyle = 'solid';
+      correctSlot.style.opacity = '0.9';
+      correctSlot.style.animation = 'glowHint 3s infinite';
+    }
+
+    setTimeout( () =>
+    {
+      randomPiece.style.border = '3px solid #fff';
+      randomPiece.style.animation = 'none';
+
+      if ( correctSlot && !correctSlot.querySelector( '.puzzle-piece' ) )
+      {
+        correctSlot.style.borderColor = '#ced4da';
+        correctSlot.style.borderStyle = 'dashed';
+        correctSlot.style.opacity = '1';
+        correctSlot.style.animation = 'none';
+      }
+    }, 4000 );
+
+    gameState.hintsUsed++;
+    gameState.score = Math.max( 0, gameState.score - 10 );
+    updateGameDisplay();
+
+    document.getElementById( 'hint-btn' ).textContent = `💡 Hint (${ 2 - gameState.hintsUsed } left)`;
+  }
+
+  // Shuffle puzzle pieces
+  function shufflePieces()
+  {
+    const container = document.getElementById( 'pieces-container' );
+    const pieces = Array.from( container.querySelectorAll( '.puzzle-piece[draggable="true"]' ) );
+
+    for ( let i = pieces.length - 1; i > 0; i-- )
+    {
+      const j = Math.floor( Math.random() * ( i + 1 ) );
+      container.appendChild( pieces[ j ] );
+    }
+  }
+
+  // Update timer display
+  function updateTimerDisplay()
+  {
+    const timerDisplay = document.getElementById( 'timer-display' );
+    timerDisplay.textContent = gameState.timeLeft;
+
+    if ( gameState.timeLeft <= 10 )
+    {
+      timerDisplay.style.color = '#dc3545';
+      timerDisplay.style.animation = 'timerPulse 1s infinite';
+    } else if ( gameState.timeLeft <= 20 )
+    {
+      timerDisplay.style.color = '#ffc107';
+      timerDisplay.style.animation = 'none';
+    } else
+    {
+      timerDisplay.style.color = 'white';
+      timerDisplay.style.animation = 'none';
+    }
+  }
+
+  // Pause game
+  function pauseGame()
+  {
+    if ( gameState.timerInterval )
+    {
+      clearInterval( gameState.timerInterval );
+      gameState.timerInterval = null;
+    }
+    gameState.isPlaying = false;
+  }
+
+  // Complete puzzle successfully
+  function completePuzzle()
+  {
+    clearInterval( gameState.timerInterval );
+    gameState.isPlaying = false;
+
+    const completionTime = PUZZLE_CONFIG.timer - gameState.timeLeft;
+    const timeBonus = Math.max( 0, gameState.timeLeft * 3 );
+    const speedBonus = completionTime < 20 ? 75 : completionTime < 40 ? 50 : 25;
+    const difficultyBonus = PUZZLE_CONFIG.pieces * 15;
+    const hintPenalty = gameState.hintsUsed * 10;
+
+    gameState.score = gameState.score + timeBonus + speedBonus + difficultyBonus - hintPenalty;
+
+    let discountTier = 'bronze';
+    if ( gameState.score >= 150 ) discountTier = 'platinum';
+    else if ( gameState.score >= 120 ) discountTier = 'gold';
+    else if ( gameState.score >= 90 ) discountTier = 'silver';
+
+    const discount = PUZZLE_CONFIG.discountCodes.find( d => d.tier === discountTier ) || PUZZLE_CONFIG.discountCodes[ 0 ];
+
+    document.getElementById( 'completion-stats' ).innerHTML = `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left;">
+      <div><strong>⏱️ Time:</strong><br>${ completionTime }s</div>
+      <div><strong>⚡ Time Bonus:</strong><br>+${ timeBonus }</div>
+      <div><strong>🚀 Speed:</strong><br>+${ speedBonus }</div>
+      <div><strong>🧩 Difficulty:</strong><br>+${ difficultyBonus }</div>
+      <div><strong>💡 Hints:</strong><br>-${ hintPenalty }</div>
+      <div><strong>📊 Status:</strong><br>Perfect!</div>
+    </div>
+    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e9ecef; text-align: center;">
+      <strong style="font-size: 16px; color: #28a745;">🏆 ${ gameState.score } POINTS - ${ discountTier.toUpperCase() }!</strong>
+    </div>
+  `;
+
+    document.getElementById( 'discount-display' ).innerHTML = `
+    <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+      🎁 ${ discount.title }
+    </div>
+    <div style="font-size: 24px; font-weight: bold; letter-spacing: 2px; background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; margin: 8px 0;">
+      ${ discount.code }
+    </div>
+    <div style="font-size: 12px; opacity: 0.9;">
+      ${ discount.percentage }% OFF your purchase!
+    </div>
+  `;
+
+    document.getElementById( 'completion-modal' ).style.display = 'flex';
+  }
+
+  // Game over
+  function gameOver()
+  {
+    gameState.isEarlySubmission = true;
+    submitEarly();
+  }
+
+  // Claim reward
+  function claimReward()
+  {
+    const email = document.getElementById( 'user-email' ).value.trim();
+
+    if ( !email || !email.includes( '@' ) )
+    {
+      alert( 'Please enter a valid email address to claim your reward!' );
+      document.getElementById( 'user-email' ).focus();
+      return;
+    }
+
+    const completionPercentage = Math.round( ( gameState.completedPieces / PUZZLE_CONFIG.pieces ) * 100 );
+    if ( gameState.isEarlySubmission && completionPercentage < 50 )
+    {
+      alert( 'Sorry, you need to complete at least 50% of the puzzle to claim a reward!' );
+      return;
+    }
+
+    let discountCode = 'NONE';
+    let discountPercentage = 0;
+
+    try
+    {
+      const discountText = document.querySelector( '#discount-display' ).textContent;
+      const codeMatch = discountText.match( /[A-Z0-9]+/ );
+      if ( codeMatch )
+      {
+        discountCode = codeMatch[ 0 ];
+        const foundDiscount = PUZZLE_CONFIG.discountCodes.find( d => d.code === discountCode );
+        if ( foundDiscount )
+        {
+          discountPercentage = foundDiscount.percentage;
+        }
+      }
+    } catch ( e )
+    {
+      console.error( 'Error extracting discount code:', e );
+    }
+
+    const gameData = {
+      email: email,
+      score: gameState.score,
+      completionTime: PUZZLE_CONFIG.timer - gameState.timeLeft,
+      completionPercentage: completionPercentage,
+      discountCode: discountCode,
+      discountPercentage: discountPercentage,
+      timestamp: new Date().toISOString(),
+      puzzlePieces: PUZZLE_CONFIG.pieces,
+      campaignName: PUZZLE_CONFIG.campaignName,
+      timerSetting: PUZZLE_CONFIG.timer,
+      hintsUsed: gameState.hintsUsed,
+      isEarlySubmission: gameState.isEarlySubmission,
+      isComplete: completionPercentage === 100,
+      difficulty: 'hard',
+      imageLoaded: gameState.imageLoaded
+    };
+
+    console.log( 'Game data to save:', gameData );
+
+    showSuccessMessage( email );
+  }
+
+  // Show success message
+  function showSuccessMessage( email )
+  {
+    alert( `🎉 Congratulations! Your discount code has been sent to ${ email }. Check your inbox!` );
+    closePuzzleGame();
+
+    document.getElementById( 'puzzle-widget' ).style.display = 'none';
+    setTimeout( () =>
+    {
+      document.getElementById( 'puzzle-widget' ).style.display = 'flex';
+    }, 300000 );
+  }
+
+  // Play again
+  function playAgain()
+  {
+    document.getElementById( 'completion-modal' ).style.display = 'none';
+    resetGame();
+  }
+
+  // Reset game
+  function resetGame()
+  {
+    clearInterval( gameState.timerInterval );
+
+    gameState = {
+      isPlaying: false,
+      startTime: null,
+      timeLeft: PUZZLE_CONFIG.timer,
+      timerInterval: null,
+      pieces: [],
+      completedPieces: 0,
+      score: 0,
+      gameLoaded: true,
+      hintsUsed: 0,
+      isEarlySubmission: false,
+      referenceVisible: false,
+      imageLoaded: gameState.imageLoaded // Preserve image load status
+    };
+
+    document.getElementById( 'timer-display' ).textContent = PUZZLE_CONFIG.timer;
+    document.getElementById( 'timer-display' ).style.color = 'white';
+    document.getElementById( 'timer-display' ).style.animation = 'none';
+    document.getElementById( 'start-game-btn' ).style.display = 'inline-block';
+    document.getElementById( 'submit-early-btn' ).style.display = 'none';
+    document.getElementById( 'shuffle-btn' ).style.display = 'none';
+    document.getElementById( 'hint-btn' ).style.display = 'none';
+    document.getElementById( 'hint-btn' ).textContent = '💡 Hint (2 left)';
+    document.getElementById( 'user-email' ).value = '';
+
+    const refImg = document.getElementById( 'reference-image' );
+    refImg.style.opacity = '0.7';
+    refImg.style.width = '80px';
+    refImg.style.height = '80px';
+
+    updateGameDisplay();
+    createPuzzlePieces();
+  }
+
+  // Initialize widget on page load
+  document.addEventListener( 'DOMContentLoaded', function ()
+  {
+    console.log( 'DOM loaded, initializing puzzle widget' );
+    setTimeout( () =>
+    {
+      const widget = document.getElementById( 'puzzle-widget' );
+      if ( widget )
+      {
+        widget.style.animation = 'pulseWidget 2s infinite';
+      }
+    }, 2000 );
+  } );
+
+  // Handle escape key
+  document.addEventListener( 'keydown', function ( e )
+  {
+    if ( e.key === 'Escape' )
+    {
+      closePuzzleGame();
+    }
+  } );
+</script>
+
+{% endif %}
+
+{% schema %}
+{
+"name": "Jigsaw Puzzle Widget",
+"target": "head",
+"settings": [
+{
+"type": "select",
+"id": "widget_position",
+"label": "Widget Position",
+"options": [
+{
+"value": "right-bottom",
+"label": "Right Bottom"
+},
+{
+"value": "right-top",
+"label": "Right Top"
+},
+{
+"value": "bottom-center",
+"label": "Bottom Center"
+},
+{
+"value": "left-bottom",
+"label": "Left Bottom"
+}
+],
+"default": "right-bottom"
+}
+]
+}
+{% endschema %}
