@@ -13,10 +13,28 @@ import { authenticate } from "../shopify.server";
 
 export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
 
+// export const loader = async ({ request }) => {
+//   await authenticate.admin(request);
+//   const url = new URL(request.url);
+//   const host = url.searchParams.get("host");
+
+//   return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
+// };
+
 export const loader = async ({ request }) => {
   await authenticate.admin(request);
   const url = new URL(request.url);
   const host = url.searchParams.get("host");
+  // console.log("Loader called with host:", host);
+
+  if (!host) {
+    throw new Response("Missing host parameter", {
+      status: 302,
+      headers: {
+        Location: `/exitframe?${url.searchParams.toString()}`, // Or redirect to a safe fallback
+      },
+    });
+  }
 
   return { apiKey: process.env.SHOPIFY_API_KEY || "", host };
 };
@@ -28,6 +46,7 @@ export default function App() {
 
   const searchParams = new URLSearchParams(location.search);
   searchParams.set("host", host);
+  // console.log("Search params set with host:", searchParams.toString(),'h host:', host );
   return (
     <AppProvider isEmbeddedApp apiKey={apiKey} host={host}>
       <NavMenu>
