@@ -1,21 +1,43 @@
-FROM node:18-alpine
-RUN apk add --no-cache openssl
+# 1️⃣ Builder
+FROM node:20-alpine AS builder
 
-EXPOSE 3000
+WORKDIR /app
+
+ENV NODE_ENV=development
+
+# Copy and install dependencies
+COPY package.json package-lock.json ./
+RUN npm install
+
+# Copy rest of the code and generate build
+COPY . .
+RUN npx prisma generate
+RUN npm run build
+
+# 2️⃣ Runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=3000
 
-COPY package.json package-lock.json* ./
+# Install curl (optional for health checks)
+RUN apk add --no-cache curl
 
-RUN npm ci --omit=dev && npm cache clean --force
-# Remove CLI packages since we don't need them in production by default.
-# Remove this line if you want to run CLI commands in your container.
-RUN npm remove @shopify/cli
+# Copy only needed files and install production deps
+COPY package.json package-lock.json ./
+RUN npm install --omit=dev
 
-COPY . .
+# Copy Prisma and generate client
+COPY prisma ./prisma
+RUN npx prisma generate
 
-RUN npm run build
+# Copy built files from builder stage
+COPY --from=builder /app/build ./build
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
 
 CMD ["npm", "run", "docker-start"]
