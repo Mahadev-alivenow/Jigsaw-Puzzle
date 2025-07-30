@@ -3,7 +3,7 @@
 client_id = "14502813d64dfb8e90b26c9be68e67c7"
 name = "jigsaw-puzzle"
 handle = "jigsaw-puzzle-1"
-application_url = "https://pencil-belle-sql-place.trycloudflare.com"
+application_url = "https://omaha-computed-loving-hazards.trycloudflare.com"
 embedded = true
 
 [build]
@@ -16,9 +16,9 @@ scopes = "read_discounts,read_products,write_discounts,write_products"
 
 [auth]
 redirect_urls = [
-  "https://pencil-belle-sql-place.trycloudflare.com/auth/callback",
-  "https://pencil-belle-sql-place.trycloudflare.com/auth/shopify/callback",
-  "https://pencil-belle-sql-place.trycloudflare.com/api/auth/callback"
+  "https://omaha-computed-loving-hazards.trycloudflare.com/auth/callback",
+  "https://omaha-computed-loving-hazards.trycloudflare.com/auth/shopify/callback",
+  "https://omaha-computed-loving-hazards.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]

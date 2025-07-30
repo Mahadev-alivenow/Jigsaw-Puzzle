@@ -42,6 +42,13 @@ export default function App() {
       return null;
     }
 
+    // Check if shopify global is available
+    if (typeof window !== "undefined" && !window.shopify) {
+      console.warn(
+        "Shopify global not available, App Bridge may not work properly",
+      );
+    }
+
     try {
       return createApp({
         apiKey,
@@ -66,6 +73,8 @@ export default function App() {
             rel="stylesheet"
             href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
           />
+          {/* Add Shopify App Bridge script */}
+          <script src="https://unpkg.com/@shopify/app-bridge@3" async />
           <Meta />
           <Links />
         </head>
@@ -88,6 +97,8 @@ export default function App() {
           rel="stylesheet"
           href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
         />
+        {/* Add Shopify App Bridge script */}
+        <script src="https://unpkg.com/@shopify/app-bridge@3" async />
         <Meta />
         <Links />
       </head>

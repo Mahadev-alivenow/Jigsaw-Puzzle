@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Page, Tabs, Card, Banner, Badge } from "@shopify/polaris";
 import { useLoaderData } from "@remix-run/react";
 import { Redirect } from "@shopify/app-bridge/actions";
-import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
+import { TitleBar } from "@shopify/app-bridge-react";
 import SubscriptionBanner from "../components/SubscriptionBanner";
 import TabsContent from "../components/TabsContent";
 import PlanCard from "../components/PlanCard";
@@ -118,10 +118,10 @@ export const loader = async ({ request }) => {
 };
 
 export default function Index() {
-  const app = useAppBridge();
   const loaderData = useLoaderData();
   const [selectedTab, setSelectedTab] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [appBridge, setAppBridge] = useState(null);
 
   const {
     shop,
@@ -147,14 +147,55 @@ export default function Index() {
     setIsMounted(true);
   }, []);
 
+  // Initialize App Bridge safely
   useEffect(() => {
-    if (isMounted && requiresBilling && app) {
-      Redirect.toAdminPath({
-        app,
-        path: `/apps/jigsaw-puzzle-1/pricing_plans`,
-      });
+    if (isMounted && typeof window !== "undefined") {
+      // Wait for shopify global to be available
+      const checkShopifyGlobal = () => {
+        if (window.shopify) {
+          try {
+            // Import App Bridge dynamically to avoid SSR issues
+            import("@shopify/app-bridge")
+              .then(({ createApp }) => {
+                const app = createApp({
+                  apiKey: process.env.SHOPIFY_API_KEY || "",
+                  host: host,
+                  forceRedirect: true,
+                });
+                setAppBridge(app);
+                console.log("✅ App Bridge initialized successfully");
+              })
+              .catch((error) => {
+                console.error("❌ Failed to initialize App Bridge:", error);
+              });
+          } catch (error) {
+            console.error("❌ Error creating App Bridge:", error);
+          }
+        } else {
+          // Retry after a short delay
+          setTimeout(checkShopifyGlobal, 100);
+        }
+      };
+
+      checkShopifyGlobal();
     }
-  }, [app, requiresBilling, isMounted]);
+  }, [isMounted, host]);
+
+  // Handle billing redirect
+  useEffect(() => {
+    if (isMounted && requiresBilling && appBridge) {
+      try {
+        Redirect.toAdminPath({
+          app: appBridge,
+          path: `/apps/jigsaw-puzzle-1/pricing_plans`,
+        });
+      } catch (error) {
+        console.error("❌ Failed to redirect to billing:", error);
+        // Fallback: redirect using window.location
+        window.location.href = `/admin/apps/jigsaw-puzzle-1/pricing_plans`;
+      }
+    }
+  }, [appBridge, requiresBilling, isMounted]);
 
   // Prevent hydration mismatch
   if (!isMounted) {
@@ -222,7 +263,7 @@ export default function Index() {
 
   return (
     <Page>
-      <TitleBar title="Puzzle Craft" />
+      {appBridge && <TitleBar title="Puzzle Craft" />}
       <div style={{ paddingBottom: "20px" }}>
         <Tabs
           tabs={tabs}
