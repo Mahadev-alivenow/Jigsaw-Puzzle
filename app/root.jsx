@@ -83,7 +83,7 @@ export default function App() {
             }
           }}
         >
-          <NavMenu>
+          {/* <NavMenu>
             <Link to={`/app?${searchParams.toString()}`}>Home</Link>
             <Link to={`/app/billing?${searchParams.toString()}`}>Billing</Link>
             <Link
@@ -92,7 +92,7 @@ export default function App() {
             >
               Setup Discounts
             </Link>
-          </NavMenu>
+          </NavMenu> */}
           <Outlet />
         </AppProvider>
 
