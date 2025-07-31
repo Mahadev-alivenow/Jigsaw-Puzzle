@@ -1,3 +1,4 @@
+// app/routes/app._index.jsx - Fixed component with working tabs
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,7 +18,7 @@ import {
   syncDiscountCodesToMetafields,
 } from "../../utils/metafields.server";
 
-// app/routes/app._index.jsx - Improved loader
+// Your existing loader with better error handling
 export const loader = async ({ request }) => {
   try {
     const { admin, session, billing } = await authenticate.admin(request);
@@ -26,7 +27,6 @@ export const loader = async ({ request }) => {
     const url = new URL(request.url);
     let host = url.searchParams.get("host");
 
-    // Better host handling for production
     if (!host) {
       console.warn(
         "Missing host parameter, attempting to construct from shop domain",
@@ -36,8 +36,6 @@ export const loader = async ({ request }) => {
         host = Buffer.from(hostString).toString("base64");
         console.log("Constructed host:", host);
       } else {
-        console.error("No shop domain available to construct host");
-        // Instead of throwing, return an error state
         return {
           error:
             "Missing host parameter and unable to construct from shop domain",
@@ -100,6 +98,10 @@ export const loader = async ({ request }) => {
             "✅ Valid discount codes:",
             validDiscountCodes.map((code) => code.code).join(", "),
           );
+          console.log(
+            "📋 Full discount data:",
+            JSON.stringify(validDiscountCodes, null, 2),
+          );
         }
       } catch (error) {
         console.error("❌ Error fetching discount codes:", error);
@@ -133,7 +135,6 @@ export const loader = async ({ request }) => {
   } catch (error) {
     console.error("Loader error:", error);
 
-    // Return error state instead of throwing
     return {
       error: error.message || "An error occurred loading the app",
       shop: null,
@@ -151,14 +152,27 @@ export default function Index() {
   const app = useAppBridge();
   const loaderData = useLoaderData();
   const [selectedTab, setSelectedTab] = useState(0);
+
+  // Handle error state
+  if (loaderData?.error) {
+    return (
+      <Page>
+        <Banner title="Error" tone="critical">
+          {loaderData.error}
+        </Banner>
+      </Page>
+    );
+  }
+
   const {
     shop,
     subscription,
     requiresBilling,
     validDiscountCodes,
     hasDiscountCodes,
-  } = loaderData;
-  const shopName = shop.split(".")[0];
+  } = loaderData || {};
+
+  const shopName = shop ? shop.split(".")[0] : "";
 
   // Debug logging
   console.log("🎯 UI Debug - validDiscountCodes:", validDiscountCodes);
@@ -169,19 +183,25 @@ export default function Index() {
   );
 
   useEffect(() => {
-    if (requiresBilling) {
-      Redirect.toAdminPath({
-        app,
-        path: `/apps/jigsaw-puzzle-1/pricing_plans`,
-      });
+    if (requiresBilling && app) {
+      try {
+        const redirect = Redirect.create(app);
+        redirect.dispatch(Redirect.Action.ADMIN_PATH, {
+          path: `/apps/jigsaw-puzzle-1/pricing_plans`,
+        });
+      } catch (error) {
+        console.error("Redirect error:", error);
+      }
     }
   }, [app, requiresBilling]);
 
   if (!loaderData) {
     return (
-      <Banner title="Error" tone="critical">
-        App data could not be loaded.
-      </Banner>
+      <Page>
+        <Banner title="Loading Error" tone="critical">
+          App data could not be loaded.
+        </Banner>
+      </Page>
     );
   }
 
@@ -228,6 +248,11 @@ export default function Index() {
     panelID: tab.panelID,
   }));
 
+  const handleTabSelect = (selectedTabIndex) => {
+    console.log("Tab selected:", selectedTabIndex);
+    setSelectedTab(selectedTabIndex);
+  };
+
   return (
     <Page>
       <TitleBar title="Puzzle Craft" />
@@ -236,7 +261,7 @@ export default function Index() {
         <Tabs
           tabs={tabs}
           selected={selectedTab}
-          onSelect={setSelectedTab}
+          onSelect={handleTabSelect}
           fitted
         />
       </div>
