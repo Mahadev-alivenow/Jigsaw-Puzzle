@@ -17,102 +17,134 @@ import {
   syncDiscountCodesToMetafields,
 } from "../../utils/metafields.server";
 
+// app/routes/app._index.jsx - Improved loader
 export const loader = async ({ request }) => {
-  const { admin, session, billing } = await authenticate.admin(request);
-  const shop = session.shop;
+  try {
+    const { admin, session, billing } = await authenticate.admin(request);
+    const shop = session.shop;
 
-  const url = new URL(request.url);
-  const host = url.searchParams.get("host");
+    const url = new URL(request.url);
+    let host = url.searchParams.get("host");
 
-  if (!host) {
-    throw new Error("Missing host parameter");
-  }
-
-  const { appSubscriptions } = await billing.check();
-  const hasSubscription = appSubscriptions.length > 0;
-
-  const activeCampaign = await getActiveCampaignFromMongoDB(shop, admin);
-
-  const discountCodes = await syncDiscountCodesToMetafields(admin.graphql);
-
-  console.log("🏪 Shop:", shop);
-  console.log("💳 Has Subscription:", hasSubscription);
-  console.log("📊 App Subscriptions:", appSubscriptions);
-
-  console.log("🔍 Fetching active campaign...", activeCampaign);
-
-  console.log("🎫 Syncing discount codes to metafields...", discountCodes);
-
-  let validDiscountCodes = [];
-  let hasDiscountCodes = false;
-
-  // Check and set metafields when app loads using GraphQL
-  if (hasSubscription) {
-    console.log("✅ User has subscription, setting up metafields...");
-
-    // Set subscription active metafield
-    const subscriptionResult = await createOrUpdateShopMetafield(
-      admin,
-      "puzzle_craft",
-      "subscription_active",
-      "true",
-      "single_line_text_field",
-    );
-
-    console.log("🔧 Subscription metafield result:", subscriptionResult);
-
-    // Get and validate discount codes
-    try {
-      const { validCodes, needsUpdate } = await getValidDiscountCodes(admin);
-      validDiscountCodes = validCodes || [];
-      hasDiscountCodes = validDiscountCodes.length > 0;
-
-      console.log("🎫 Valid discount codes found:", validDiscountCodes.length);
-      console.log("🔄 Metafield needed update:", needsUpdate);
-
-      if (!hasDiscountCodes) {
-        console.log(
-          "⚠️ No valid discount codes found. Please run discount setup.",
-        );
+    // Better host handling for production
+    if (!host) {
+      console.warn(
+        "Missing host parameter, attempting to construct from shop domain",
+      );
+      if (shop) {
+        const hostString = `${shop}/admin`;
+        host = Buffer.from(hostString).toString("base64");
+        console.log("Constructed host:", host);
       } else {
-        console.log(
-          "✅ Valid discount codes:",
-          validDiscountCodes.map((code) => code.code).join(", "),
-        );
-        console.log(
-          "📋 Full discount data:",
-          JSON.stringify(validDiscountCodes, null, 2),
-        );
+        console.error("No shop domain available to construct host");
+        // Instead of throwing, return an error state
+        return {
+          error:
+            "Missing host parameter and unable to construct from shop domain",
+          shop: null,
+          requiresBilling: true,
+          validDiscountCodes: [],
+          hasDiscountCodes: false,
+          activeCampaign: null,
+          discountCodes: [],
+          host: "",
+        };
       }
-    } catch (error) {
-      console.error("❌ Error fetching discount codes:", error);
-      validDiscountCodes = [];
-      hasDiscountCodes = false;
     }
-  } else {
-    console.log("❌ User has no subscription, removing metafields...");
 
-    // Set subscription inactive
-    await createOrUpdateShopMetafield(
+    const { appSubscriptions } = await billing.check();
+    const hasSubscription = appSubscriptions.length > 0;
+
+    const activeCampaign = await getActiveCampaignFromMongoDB(shop, admin);
+    const discountCodes = await syncDiscountCodesToMetafields(admin.graphql);
+
+    console.log("🏪 Shop:", shop);
+    console.log("💳 Has Subscription:", hasSubscription);
+    console.log("📊 App Subscriptions:", appSubscriptions);
+    console.log("🔍 Fetching active campaign...", activeCampaign);
+    console.log("🎫 Syncing discount codes to metafields...", discountCodes);
+
+    let validDiscountCodes = [];
+    let hasDiscountCodes = false;
+
+    if (hasSubscription) {
+      console.log("✅ User has subscription, setting up metafields...");
+
+      const subscriptionResult = await createOrUpdateShopMetafield(
+        admin,
+        "puzzle_craft",
+        "subscription_active",
+        "true",
+        "single_line_text_field",
+      );
+
+      console.log("🔧 Subscription metafield result:", subscriptionResult);
+
+      try {
+        const { validCodes, needsUpdate } = await getValidDiscountCodes(admin);
+        validDiscountCodes = validCodes || [];
+        hasDiscountCodes = validDiscountCodes.length > 0;
+
+        console.log(
+          "🎫 Valid discount codes found:",
+          validDiscountCodes.length,
+        );
+        console.log("🔄 Metafield needed update:", needsUpdate);
+
+        if (!hasDiscountCodes) {
+          console.log(
+            "⚠️ No valid discount codes found. Please run discount setup.",
+          );
+        } else {
+          console.log(
+            "✅ Valid discount codes:",
+            validDiscountCodes.map((code) => code.code).join(", "),
+          );
+        }
+      } catch (error) {
+        console.error("❌ Error fetching discount codes:", error);
+        validDiscountCodes = [];
+        hasDiscountCodes = false;
+      }
+    } else {
+      console.log("❌ User has no subscription, removing metafields...");
+
+      await createOrUpdateShopMetafield(
+        admin,
+        "puzzle_craft",
+        "subscription_active",
+        "false",
+        "single_line_text_field",
+      );
+    }
+
+    return {
+      shop,
       admin,
-      "puzzle_craft",
-      "subscription_active",
-      "false",
-      "single_line_text_field",
-    );
-  }
+      subscription: appSubscriptions?.[0],
+      requiresBilling: appSubscriptions.length === 0,
+      host,
+      validDiscountCodes,
+      hasDiscountCodes,
+      activeCampaign,
+      discountCodes,
+      error: null,
+    };
+  } catch (error) {
+    console.error("Loader error:", error);
 
-  return {
-    shop,
-    admin,
-    subscription: appSubscriptions?.[0],
-    requiresBilling: appSubscriptions.length === 0,
-    host,
-    validDiscountCodes,
-    hasDiscountCodes,
-    activeCampaign,
-    discountCodes,
-  };
+    // Return error state instead of throwing
+    return {
+      error: error.message || "An error occurred loading the app",
+      shop: null,
+      requiresBilling: true,
+      validDiscountCodes: [],
+      hasDiscountCodes: false,
+      activeCampaign: null,
+      discountCodes: [],
+      host: "",
+    };
+  }
 };
 
 export default function Index() {

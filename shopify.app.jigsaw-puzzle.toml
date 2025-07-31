@@ -3,7 +3,7 @@
 client_id = "14502813d64dfb8e90b26c9be68e67c7"
 name = "jigsaw-puzzle"
 handle = "jigsaw-puzzle-1"
-application_url = "https://inquiry-vhs-aaron-freebsd.trycloudflare.com"
+application_url = "https://stand-cg-tight-allowance.trycloudflare.com"
 embedded = true
 
 [build]
@@ -16,9 +16,9 @@ scopes = "read_discounts,read_products,write_discounts,write_products"
 
 [auth]
 redirect_urls = [
-  "https://inquiry-vhs-aaron-freebsd.trycloudflare.com/auth/callback",
-  "https://inquiry-vhs-aaron-freebsd.trycloudflare.com/auth/shopify/callback",
-  "https://inquiry-vhs-aaron-freebsd.trycloudflare.com/api/auth/callback"
+  "https://stand-cg-tight-allowance.trycloudflare.com/auth/callback",
+  "https://stand-cg-tight-allowance.trycloudflare.com/auth/shopify/callback",
+  "https://stand-cg-tight-allowance.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]

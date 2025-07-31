@@ -1,78 +1,108 @@
+// app/root.jsx - Fixed for production deployment
 import {
-  Links,
-  Meta,
+  Link,
   Outlet,
-  Scripts,
-  ScrollRestoration,
   useLoaderData,
+  useLocation,
+  useRouteError,
 } from "@remix-run/react";
-import { json, redirect } from "@remix-run/node";
-import { createApp } from "@shopify/app-bridge";
-import { AppProvider as PolarisAppProvider } from "@shopify/polaris";
-import { useMemo } from "react";
+import { boundary } from "@shopify/shopify-app-remix/server";
+import { AppProvider } from "@shopify/shopify-app-remix/react";
+import { NavMenu } from "@shopify/app-bridge-react";
+import polarisStyles from "@shopify/polaris/build/esm/styles.css?url";
+import { authenticate } from "./shopify.server";
+// import { authenticate } from "../shopify.server";
 import "@shopify/polaris/build/esm/styles.css";
 
+export const links = () => [{ rel: "stylesheet", href: polarisStyles }];
+
 export const loader = async ({ request }) => {
+  try {
+    await authenticate.admin(request);
+  } catch (error) {
+    console.error("Authentication error:", error);
+    // Don't throw here, let the app handle it gracefully
+  }
+
   const url = new URL(request.url);
-  const chargeId = url.searchParams.get("charge_id");
-  const host = url.searchParams.get("host");
+  let host = url.searchParams.get("host");
 
+  // Production host handling
   if (!host) {
-    // Prevent AppBridgeError if accessed without host param
-    throw new Response("Missing host parameter", { status: 400 });
+    const shopDomain = url.searchParams.get("shop");
+    if (shopDomain) {
+      const hostString = `${shopDomain}/admin`;
+      host = Buffer.from(hostString).toString("base64");
+    }
   }
 
-  if (chargeId) {
-    return redirect(`/app?_action=savePlan&charge_id=${chargeId}`);
-  }
-
-  return json({
-    apiKey: process.env.SHOPIFY_API_KEY,
-    host,
-  });
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    host: host || "",
+    // Add environment info for debugging
+    environment: process.env.NODE_ENV || "development",
+  };
 };
 
 export default function App() {
-  const { apiKey, host } = useLoaderData();
+  const { apiKey, host, environment } = useLoaderData();
+  const location = useLocation();
 
-  const appBridge = useMemo(() => {
-    return createApp({
-      apiKey,
-      host,
-      forceRedirect: true,
-    });
-  }, [apiKey, host]);
+  // Ensure host is always in search params
+  const searchParams = new URLSearchParams(location.search);
+  if (host && !searchParams.get("host")) {
+    searchParams.set("host", host);
+  }
 
   return (
-    <html lang="en">
+    <AppProvider
+      isEmbeddedApp
+      apiKey={apiKey}
+      host={host}
+      // Add error handling for production
+      onError={(error) => {
+        console.error("App Bridge Error:", error);
+        if (environment === "development") {
+          console.log("Host:", host);
+          console.log("API Key:", apiKey);
+        }
+      }}
+    >
+      <NavMenu>
+        <Link to={`/app?${searchParams.toString()}`}>Home</Link>
+        <Link to={`/app/billing?${searchParams.toString()}`}>Billing</Link>
+        <Link
+          to={`/app/setup-discounts?${searchParams.toString()}`}
+          rel="setup-discounts"
+        >
+          Setup Discounts
+        </Link>
+      </NavMenu>
+      <Outlet />
+    </AppProvider>
+  );
+}
+
+export function ErrorBoundary() {
+  const error = useRouteError();
+  console.error("Root Error Boundary:", error);
+
+  return (
+    <html>
       <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width,initial-scale=1" />
-        <link rel="preconnect" href="https://cdn.shopify.com/" />
-        <link
-          rel="stylesheet"
-          href="https://cdn.shopify.com/static/fonts/inter/v4/styles.css"
-        />
-        {/* <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-        <title>Spinorama</title> */}
-        <Meta />
-        <Links />
+        <title>App Error</title>
       </head>
       <body>
-        <PolarisAppProvider
-          i18n={{}}
-          linkComponent={({ url, children, ...rest }) => (
-            <a href={url} {...rest}>
-              {children}
-            </a>
-          )}
-        >
-          <Outlet context={{ appBridge }} />
-        </PolarisAppProvider>
-
-        <ScrollRestoration />
-        <Scripts />
+        <div style={{ padding: "20px" }}>
+          <h1>Something went wrong</h1>
+          <p>Please try refreshing the page or contact support.</p>
+          {process.env.NODE_ENV === "development" && <pre>{error.stack}</pre>}
+        </div>
       </body>
     </html>
   );
 }
+
+export const headers = (headersArgs) => {
+  return boundary.headers(headersArgs);
+};
