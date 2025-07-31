@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import { Page, Tabs, Card, Banner, Badge } from "@shopify/polaris";
 import { useLoaderData } from "@remix-run/react";
 import { Redirect } from "@shopify/app-bridge/actions";
-import { TitleBar } from "@shopify/app-bridge-react";
+import { useAppBridge, TitleBar } from "@shopify/app-bridge-react";
+
 import SubscriptionBanner from "../components/SubscriptionBanner";
 import TabsContent from "../components/TabsContent";
 import PlanCard from "../components/PlanCard";
 import { authenticate } from "../shopify.server";
-import { json } from "@remix-run/node";
 import {
   createOrUpdateShopMetafield,
   getActiveCampaignFromMongoDB,
@@ -20,30 +20,27 @@ import {
 export const loader = async ({ request }) => {
   const { admin, session, billing } = await authenticate.admin(request);
   const shop = session.shop;
+
   const url = new URL(request.url);
   const host = url.searchParams.get("host");
 
-  console.log("Index loader - URL:", url.toString());
-  console.log("Index loader - Host:", host);
-
   if (!host) {
-    console.error("Missing host parameter in index loader");
-    throw new Response("Missing host parameter", {
-      status: 400,
-      statusText: "Bad Request - Missing host parameter",
-    });
+    throw new Error("Missing host parameter");
   }
 
   const { appSubscriptions } = await billing.check();
   const hasSubscription = appSubscriptions.length > 0;
 
   const activeCampaign = await getActiveCampaignFromMongoDB(shop, admin);
+
   const discountCodes = await syncDiscountCodesToMetafields(admin.graphql);
 
   console.log("🏪 Shop:", shop);
   console.log("💳 Has Subscription:", hasSubscription);
   console.log("📊 App Subscriptions:", appSubscriptions);
+
   console.log("🔍 Fetching active campaign...", activeCampaign);
+
   console.log("🎫 Syncing discount codes to metafields...", discountCodes);
 
   let validDiscountCodes = [];
@@ -94,6 +91,7 @@ export const loader = async ({ request }) => {
     }
   } else {
     console.log("❌ User has no subscription, removing metafields...");
+
     // Set subscription inactive
     await createOrUpdateShopMetafield(
       admin,
@@ -104,7 +102,7 @@ export const loader = async ({ request }) => {
     );
   }
 
-  return json({
+  return {
     shop,
     admin,
     subscription: appSubscriptions?.[0],
@@ -114,24 +112,20 @@ export const loader = async ({ request }) => {
     hasDiscountCodes,
     activeCampaign,
     discountCodes,
-  });
+  };
 };
 
 export default function Index() {
+  const app = useAppBridge();
   const loaderData = useLoaderData();
   const [selectedTab, setSelectedTab] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
-  const [appBridge, setAppBridge] = useState(null);
-
   const {
     shop,
     subscription,
     requiresBilling,
     validDiscountCodes,
     hasDiscountCodes,
-    host,
   } = loaderData;
-
   const shopName = shop.split(".")[0];
 
   // Debug logging
@@ -141,79 +135,20 @@ export default function Index() {
     "🎯 UI Debug - validDiscountCodes length:",
     validDiscountCodes?.length,
   );
-  console.log("🎯 UI Debug - host:", host);
 
   useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Initialize App Bridge safely
-  useEffect(() => {
-    if (isMounted && typeof window !== "undefined") {
-      // Wait for shopify global to be available
-      const checkShopifyGlobal = () => {
-        if (window.shopify) {
-          try {
-            // Import App Bridge dynamically to avoid SSR issues
-            import("@shopify/app-bridge")
-              .then(({ createApp }) => {
-                const app = createApp({
-                  apiKey: process.env.SHOPIFY_API_KEY || "",
-                  host: host,
-                  forceRedirect: true,
-                });
-                setAppBridge(app);
-                console.log("✅ App Bridge initialized successfully");
-              })
-              .catch((error) => {
-                console.error("❌ Failed to initialize App Bridge:", error);
-              });
-          } catch (error) {
-            console.error("❌ Error creating App Bridge:", error);
-          }
-        } else {
-          // Retry after a short delay
-          setTimeout(checkShopifyGlobal, 100);
-        }
-      };
-
-      checkShopifyGlobal();
+    if (requiresBilling) {
+      Redirect.toAdminPath({
+        app,
+        path: `/apps/jigsaw-puzzle-1/pricing_plans`,
+      });
     }
-  }, [isMounted, host]);
-
-  // Handle billing redirect
-  useEffect(() => {
-    if (isMounted && requiresBilling && appBridge) {
-      try {
-        Redirect.toAdminPath({
-          app: appBridge,
-          path: `/apps/jigsaw-puzzle-1/pricing_plans`,
-        });
-      } catch (error) {
-        console.error("❌ Failed to redirect to billing:", error);
-        // Fallback: redirect using window.location
-        window.location.href = `/admin/apps/jigsaw-puzzle-1/pricing_plans`;
-      }
-    }
-  }, [appBridge, requiresBilling, isMounted]);
-
-  // Prevent hydration mismatch
-  if (!isMounted) {
-    return <div>Loading...</div>;
-  }
+  }, [app, requiresBilling]);
 
   if (!loaderData) {
     return (
       <Banner title="Error" tone="critical">
         App data could not be loaded.
-      </Banner>
-    );
-  }
-
-  if (!host) {
-    return (
-      <Banner title="Configuration Error" tone="critical">
-        Missing host parameter. Please refresh the page.
       </Banner>
     );
   }
@@ -263,7 +198,8 @@ export default function Index() {
 
   return (
     <Page>
-      {appBridge && <TitleBar title="Puzzle Craft" />}
+      <TitleBar title="Puzzle Craft" />
+
       <div style={{ paddingBottom: "20px" }}>
         <Tabs
           tabs={tabs}
