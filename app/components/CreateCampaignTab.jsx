@@ -119,7 +119,7 @@ export default function CreateCampaignTab() {
   ];
 
   const fileUpload = !files.length && (
-    <DropZone.FileUpload actionHint="Accepts .jpg, .png, .gif" />
+    <DropZone.FileUpload actionHint="Accepts .jpg, .png, .gif — Max size 10 MB" />
   );
 
   const uploadedFiles = files.length > 0 && (

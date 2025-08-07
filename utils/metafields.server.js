@@ -828,4 +828,127 @@ export async function syncDiscountCodesToMetafields(graphql) {
     return { success: false, error: error.message };
   }
 }
+
+
+// Updated createSubscriptionMetafield that works with public plans
+export async function createSubscriptionMetafield(
+  graphql,
+  hasSubscription,
+  shopName = null,
+) {
+  try {
+    // Convert boolean to string for Shopify metafield
+    const value = hasSubscription ? "true" : "false";
+
+    console.log(
+      `🔄 Setting subscription metafield: ${value} for shop: ${shopName}`,
+    );
+
+    const appIdQuery = await graphql(`
+      #graphql
+      query {
+        currentAppInstallation {
+          id
+        }
+        shop {
+          id
+        }
+      }
+    `);
+
+    const appIdQueryData = await appIdQuery.json();
+    const appInstallationID = appIdQueryData.data.currentAppInstallation.id;
+    // const shopInstallationID = appIdQueryData.data.shop.id;
+    console.log("App Installation ID:", appInstallationID);
+    // console.log("Shop Installation ID:", shopInstallationID);
+
+    const appMetafield = await graphql(
+      `
+        #graphql
+        mutation CreateAppDataMetafield($metafields: [MetafieldsSetInput!]!) {
+          metafieldsSet(metafields: $metafields) {
+            metafields {
+              id
+              namespace
+              key
+              value
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+      {
+        variables: {
+          metafields: [
+            // Subscription status
+            {
+              namespace: "puzzle_craft",
+              key: "name",
+              type: "single_line_text_field",
+              value: activeCampaign.name,
+              ownerId: appInstallationID,
+            },
+            {
+              namespace: "puzzle_craft",
+              key: "imageUrl",
+              type: "single_line_text_field",
+              value: activeCampaign.imageUrl,
+              ownerId: appInstallationID,
+            },
+            {
+              namespace: "puzzle_craft",
+              key: "puzzlePieces",
+              type: "number_integer",
+              value: activeCampaign.puzzlePieces.toString(),
+              ownerId: appInstallationID,
+            },
+            {
+              namespace: "puzzle_craft",
+              key: "widgetPosition",
+              type: "single_line_text_field",
+              value: activeCampaign.widgetPosition,
+              ownerId: appInstallationID,
+            },
+            {
+              namespace: "puzzle_craft",
+              key: "timer",
+              type: "number_integer",
+              value: activeCampaign.timer.toString(),
+              ownerId: appInstallationID,
+            },
+            {
+              namespace: "puzzle_craft",
+              key: "isActive",
+              type: "single_line_text_field",
+              value: activeCampaign.isActive.toString(),
+              ownerId: appInstallationID,
+            },
+          ],
+        },
+      },
+    );
+
+    const data = await appMetafield.json();
+
+    if (data.data?.metafieldsSet?.userErrors?.length > 0) {
+      console.error(
+        "Metafield userErrors:",
+        data.data.metafieldsSet.userErrors,
+      );
+      return { success: false, errors: data.data.metafieldsSet.userErrors };
+    }
+
+    console.log(
+      "✅ Successfully set subscription metafield:",
+      data.data.metafieldsSet.metafields,
+    );
+    return { success: true, metafields: data.data.metafieldsSet.metafields };
+  } catch (error) {
+    console.error("Error setting subscription metafield:", error);
+    return { success: false, error: error.message };
+  }
+}
   
