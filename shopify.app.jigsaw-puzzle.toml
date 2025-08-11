@@ -3,7 +3,7 @@
 client_id = "14502813d64dfb8e90b26c9be68e67c7"
 name = "jigsaw-puzzle"
 handle = "jigsaw-puzzle-1"
-application_url = "https://vat-ty-characterized-gives.trycloudflare.com"
+application_url = "https://references-advances-vii-pubmed.trycloudflare.com"
 embedded = true
 
 [build]
@@ -17,9 +17,9 @@ scopes = "read_discounts,read_products,write_discounts,write_products"
 
 [auth]
 redirect_urls = [
-  "https://vat-ty-characterized-gives.trycloudflare.com/auth/callback",
-  "https://vat-ty-characterized-gives.trycloudflare.com/auth/shopify/callback",
-  "https://vat-ty-characterized-gives.trycloudflare.com/api/auth/callback"
+  "https://references-advances-vii-pubmed.trycloudflare.com/auth/callback",
+  "https://references-advances-vii-pubmed.trycloudflare.com/auth/shopify/callback",
+  "https://references-advances-vii-pubmed.trycloudflare.com/api/auth/callback"
 ]
 
 [webhooks]

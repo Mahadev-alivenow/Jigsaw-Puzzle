@@ -32,9 +32,9 @@ export default function CampaignsTab() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastError, setToastError] = useState(false);
+  const [subscription, setSubscription] = useState("");
 
   useEffect(() => {
-    // Fetch campaigns on component mount
     fetcher.load("/app/campaigns");
   }, []);
 
@@ -42,22 +42,20 @@ export default function CampaignsTab() {
     if (fetcher.data?.campaigns) {
       setCampaigns(fetcher.data.campaigns);
     }
+    if (fetcher.data?.subscription) {
+      setSubscription(fetcher.data.subscription);
+    }
   }, [fetcher.data]);
 
-  // Refresh campaigns after successful operations and show toast
   useEffect(() => {
     if (fetcher.data?.success && fetcher.state === "idle") {
-      // Show success toast
       setToastMessage("Campaign updated successfully!");
       setToastError(false);
       setShowToast(true);
-
-      // Refetch campaigns after successful update/delete/toggle
       setTimeout(() => {
         fetcher.load("/app/campaigns");
       }, 100);
     } else if (fetcher.data?.error && fetcher.state === "idle") {
-      // Show error toast
       setToastMessage(fetcher.data.error);
       setToastError(true);
       setShowToast(true);
@@ -72,16 +70,13 @@ export default function CampaignsTab() {
 
   const handleSaveEdit = () => {
     if (!editName.trim()) return;
-
     const formData = new FormData();
     formData.append("campaignId", editingCampaign._id);
     formData.append("name", editName);
-
     fetcher.submit(formData, {
       method: "POST",
       action: "/app/campaigns/update",
     });
-
     setEditModal(false);
     setEditingCampaign(null);
     setEditName("");
@@ -94,15 +89,12 @@ export default function CampaignsTab() {
 
   const handleConfirmDelete = () => {
     if (!deletingCampaign) return;
-
     const formData = new FormData();
     formData.append("campaignId", deletingCampaign._id);
-
     fetcher.submit(formData, {
       method: "POST",
       action: "/app/campaigns/delete",
     });
-
     setDeleteModal(false);
     setDeletingCampaign(null);
   };
@@ -116,7 +108,6 @@ export default function CampaignsTab() {
     const formData = new FormData();
     formData.append("campaignId", campaign._id);
     formData.append("isActive", !campaign.isActive);
-
     fetcher.submit(formData, {
       method: "POST",
       action: "/app/campaigns/toggle",
@@ -155,6 +146,7 @@ export default function CampaignsTab() {
     );
   }
 
+  // Empty state
   if (campaigns.length === 0) {
     return (
       <Frame>
@@ -171,11 +163,104 @@ export default function CampaignsTab() {
     );
   }
 
+  // Free plan logic: more than 1 campaign
+  if (subscription === "Free plan" && campaigns.length > 1) {
+    return (
+      <Frame>
+        <Banner tone="warning" title="Free Plan Limit">
+          Only one campaign is allowed on the Free plan. Please delete extra
+          campaigns or upgrade your plan to add more.
+        </Banner>
+        <Card>
+          <BlockStack gap="400">
+            <Text variant="headingMd">Delete Extra Campaigns</Text>
+            <ResourceList
+              items={campaigns}
+              renderItem={(campaign) => {
+                const { _id, name, imageUrl, createdAt } = campaign;
+                return (
+                  <ResourceItem
+                    id={_id}
+                    media={
+                      <Thumbnail
+                        source={
+                          imageUrl || "/placeholder.png?height=50&width=50"
+                        }
+                        alt={name}
+                        size="medium"
+                      />
+                    }
+                    accessibilityLabel={`Campaign ${name}`}
+                  >
+                    <BlockStack gap="200">
+                      <Text variant="bodyMd" fontWeight="bold">
+                        {name}
+                      </Text>
+                      <Text variant="bodySm" tone="subdued">
+                        Created: {new Date(createdAt).toLocaleDateString()}
+                      </Text>
+                      <Button
+                        size="slim"
+                        tone="critical"
+                        onClick={() => handleDeleteClick(campaign)}
+                        loading={fetcher.state === "submitting"}
+                      >
+                        Delete
+                      </Button>
+                    </BlockStack>
+                  </ResourceItem>
+                );
+              }}
+            />
+          </BlockStack>
+        </Card>
+        {toastMarkup}
+
+        {/* Delete Modal */}
+        <Modal
+          open={deleteModal}
+          onClose={handleCancelDelete}
+          title="Delete Campaign"
+          primaryAction={{
+            content: "Delete Campaign",
+            onAction: handleConfirmDelete,
+            destructive: true,
+            loading: fetcher.state === "submitting",
+          }}
+          secondaryActions={[
+            {
+              content: "Cancel",
+              onAction: handleCancelDelete,
+            },
+          ]}
+        >
+          <Modal.Section>
+            <BlockStack gap="400">
+              <Text variant="bodyMd">
+                Are you sure you want to delete the campaign "
+                {deletingCampaign?.name}"?
+              </Text>
+              <Banner title="This action cannot be undone" tone="warning">
+                <p>
+                  Deleting this campaign will permanently remove it from your
+                  account.
+                </p>
+              </Banner>
+            </BlockStack>
+          </Modal.Section>
+        </Modal>
+      </Frame>
+    );
+  }
+
+  // Otherwise: puzzle-lite or paid plan → show full list
   return (
     <Frame>
       <Card>
         <BlockStack gap="400">
-          <Text variant="headingMd">Your Campaigns</Text>
+          <InlineStack align="space-between">
+            <Text variant="headingMd">Your Campaigns ({campaigns.length})</Text>
+          </InlineStack>
 
           <ResourceList
             items={campaigns}
@@ -289,7 +374,7 @@ export default function CampaignsTab() {
         </Modal.Section>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Modal */}
       <Modal
         open={deleteModal}
         onClose={handleCancelDelete}

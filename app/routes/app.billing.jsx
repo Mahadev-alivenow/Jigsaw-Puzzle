@@ -61,6 +61,12 @@ export default function Billing() {
               <Banner
                 title={`You are subscribed to the ${subscription.name} plan.`}
                 tone="success"
+                action={{
+                  content: "Change Plan",
+                  url: MANAGED_BILLING_URL,
+                  external: true,
+                  target: "_top",
+                }}
                 secondaryAction={{
                   content: "Cancel Plan",
                   tone: "critical",
@@ -92,7 +98,6 @@ export default function Billing() {
                         >
                           View Plan
                         </Button>
-
                       </InlineStack>
                     </Layout.Section>
                   </Layout>

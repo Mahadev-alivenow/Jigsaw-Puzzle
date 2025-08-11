@@ -4,8 +4,13 @@ import connectDB from "../../utils/db.server";
 import { CampaignModel } from "../../models/Campaign.server";
 
 export const loader = async ({ request }) => {
-  const { session } = await authenticate.admin(request);
+  const { session, billing } = await authenticate.admin(request);
   const shop = session.shop;
+
+  const { appSubscriptions } = await billing.check();
+  const subscription = appSubscriptions.length > 0;
+  const userSubscription = appSubscriptions[0].name;
+  // console.log("userSubscription:", userSubscription);
 
   try {
     await connectDB();
@@ -34,6 +39,7 @@ export const loader = async ({ request }) => {
 
     return json({
       campaigns: transformedCampaigns,
+      subscription: userSubscription, // default if missing
     });
   } catch (error) {
     console.error("Error fetching campaigns:", error);

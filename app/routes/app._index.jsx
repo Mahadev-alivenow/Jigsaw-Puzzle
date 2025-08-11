@@ -255,7 +255,7 @@ export default function Index() {
 
   return (
     <Page>
-      <TitleBar title="Puzzle Craft" />
+      <TitleBar title="Prizzzle" />
 
       <div style={{ paddingBottom: "20px" }}>
         <Tabs
